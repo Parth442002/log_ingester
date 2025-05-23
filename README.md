@@ -124,15 +124,16 @@ Content-Type: application/json
 Payload examples:
 
 ```json
-{ "event": "SparkListenerJobStart", "job_id": 101, "timestamp": "2024-03-30T10:12:45Z", "user":"data_engineer_1" }
+{"event": "SparkListenerJobStart","job_id": 101,"timestamp": "2024-03-30T10:12:45Z","user": "data_engineer_1"}
 ```
 
 ```json
-{ "event": "SparkListenerTaskEnd", "job_id": 101, "timestamp": "2024-03-30T10:13:22Z", "task_id":"task_001","duration_ms":4500,"successful":true }
+{"event": "SparkListenerTaskEnd","job_id": 101,"timestamp": "2024-03-30T10:13:22Z","task_id": "task_001","duration_ms": 4500,"successful": true}
+
 ```
 
 ```json
-{ "event": "SparkListenerJobEnd", "job_id": 101, "timestamp": "2024-03-30T10:14:03Z","completion_time":"2024-03-30T10:14:03Z","job_result":"JobSucceeded" }
+{"event": "SparkListenerJobEnd","job_id": 101,"timestamp": "2024-03-30T10:14:03Z","completion_time": "2024-03-30T10:14:03Z","job_result": "JobSucceeded"}
 ```
 
 ### 2. Get Job Analytics
