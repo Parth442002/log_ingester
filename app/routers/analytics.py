@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException,Query
+from fastapi.encoders import jsonable_encoder
 from datetime import datetime, date
 from typing import List
+import json
 from sqlalchemy import cast, Date
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import JobAnalytics
 from app.schemas import JobAnalyticsResponse
 from app.celery_worker import compute_job_analytics
+from app.redis_client import redis_client
 import logging
 
 router = APIRouter(
@@ -17,12 +20,20 @@ router = APIRouter(
 
 @router.get("/jobs/{job_id}", response_model=JobAnalyticsResponse)
 def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
+    cached = redis_client.get(f"job_analytics:{job_id}")
+    if cached:
+        logging.info(f"Job analytics for job_id {job_id} retrieved from Redis.")
+        return json.loads(cached)
+
     analytics = db.query(JobAnalytics).filter(JobAnalytics.job_id == job_id).first()
 
     if analytics:
-        return analytics
+        # Convert SQLAlchemy model to dict using Pydantic
+        analytics_data = JobAnalyticsResponse.model_validate(analytics).model_dump_json()
+        redis_client.set(f"job_analytics:{job_id}", analytics_data, ex=3600)
+        return analytics_data
 
-    logging.info(f"Job analytics for job_id {job_id} not found in the database, triggering computation.")
+    logging.info(f"Job analytics for job_id {job_id} not found in DB, triggering computation.")
     compute_job_analytics.delay(job_id)
     raise HTTPException(
         status_code=202,
@@ -37,7 +48,11 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    # Filter by the date part of end_time (jobs completed on that date)
+    cached = redis_client.get(f"analytics_summary:{date_str}")
+    if cached:
+        logging.info(f"Analytics summary for date {date_str} retrieved from Redis.")
+        return json.loads(cached)
+
     analytics_list = (
         db.query(JobAnalytics)
         .filter(cast(JobAnalytics.end_time, Date) == query_date)
@@ -47,4 +62,8 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
     if not analytics_list:
         raise HTTPException(status_code=404, detail=f"No job analytics found for date {date_str}")
 
-    return analytics_list
+    # Convert list of SQLAlchemy models to list of dicts using Pydantic
+    analytics_response = [JobAnalyticsResponse.model_validate(a).model_dump_json() for a in analytics_list]
+    redis_client.set(f"analytics_summary:{date_str}", analytics_response, ex=3600)
+
+    return analytics_response

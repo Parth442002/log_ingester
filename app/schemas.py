@@ -60,3 +60,4 @@ class JobAnalyticsResponse(BaseModel):
     class Config:
         orm_mode = True
         use_enum_values = True
+        from_attributes=True
