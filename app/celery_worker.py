@@ -6,11 +6,17 @@ from app.models import RawLog, JobAnalytics
 from app.schemas import EventTypeEnum,LogStatusEnum
 import logging
 from datetime import datetime
+import dotenv
+import os
+
+dotenv.load_dotenv()
+redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
 
 celery_app = Celery(
     "worker",
-    broker="redis://localhost:6379/0",  # or "redis://redis:6379/0" if using Docker
-    backend="redis://localhost:6379/0"
+    broker=redis_url,
+    backend=redis_url
 )
 
 
