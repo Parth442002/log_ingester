@@ -18,7 +18,7 @@ def create_job_logs(job_id: int, start_time: datetime):
         log={
             "event": EventTypeEnum.SPARK_LISTENER_JOB_START.value,
             "job_id": job_id,
-            "timestamp": start_time.isoformat() + "Z",
+            "timestamp": task_time.isoformat().replace("+00:00", "Z"),
             "user": f"user{job_id}@example.com"
         },
         status=LogStatusEnum.PENDING
@@ -38,7 +38,7 @@ def create_job_logs(job_id: int, start_time: datetime):
             log={
                 "event": EventTypeEnum.SPARK_LISTENER_TASK_END.value,
                 "job_id": job_id,
-                "timestamp": task_time.isoformat() + "Z",
+                "timestamp": task_time.isoformat().replace("+00:00", "Z"),
                 "task_id": f"task_{i:03}",
                 "duration_ms": random.randint(100, 10000),
                 "successful": random.choice([True, False])
@@ -58,8 +58,8 @@ def create_job_logs(job_id: int, start_time: datetime):
         log={
             "event": EventTypeEnum.SPARK_LISTENER_JOB_END.value,
             "job_id": job_id,
-            "timestamp": job_end_time.isoformat() + "Z",
-            "completion_time": job_end_time.isoformat() + "Z",
+            "timestamp": job_end_time.isoformat().replace("+00:00", "Z"),
+            "completion_time": job_end_time.isoformat().replace("+00:00", "Z"),
             "job_result": random.choice(["JobSucceeded", "JobFailed"])
         },
         status=LogStatusEnum.PENDING
