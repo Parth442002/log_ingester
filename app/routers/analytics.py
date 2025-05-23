@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException,Query
-from fastapi.encoders import jsonable_encoder
-from datetime import datetime, date
+from datetime import datetime
 from typing import List
 import json
 from sqlalchemy import cast, Date

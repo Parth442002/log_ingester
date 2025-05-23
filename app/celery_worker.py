@@ -18,6 +18,15 @@ celery_app = Celery(
 
 @celery_app.task(name="tasks.compute_job_analytics")
 def compute_job_analytics(job_id: int):
+    """
+    Compute and store job analytics for the given job_id.
+
+    1. Fetch pending logs for job_id.
+    2. Identify start, end, and task-end events.
+    3. If both start and end exist, calculate duration, task count,
+       failed tasks, and success rate.
+    4. Upsert into JobAnalytics and mark logs as processed.
+    """
     db: Session = SessionLocal()
     try:
         logs = (

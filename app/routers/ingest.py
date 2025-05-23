@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import RawLog
+from app.models import RawLog,LogStatusEnum
 from app.schemas import BaseEventLog,EventTypeEnum
 from app.celery_worker import compute_job_analytics
 
@@ -26,7 +26,8 @@ def ingest_log(log: BaseEventLog, db: Session = Depends(get_db)):
             event=event_type,
             user=user,
             timestamp=timestamp,
-            log=full_log_dict
+            log=full_log_dict,
+            status=LogStatusEnum.PENDING,
         )
         db.add(raw_log)
         db.commit()
