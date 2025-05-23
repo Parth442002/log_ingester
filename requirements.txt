@@ -6,3 +6,4 @@ python-dotenv
 alembic
 celery
 redis
+psycopg2-binary

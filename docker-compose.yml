@@ -1,0 +1,57 @@
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: myuser
+      DB_PASS: mypassword
+      DB_NAME: mydb
+      DATABASE_URL: postgresql+psycopg2://myuser:mypassword@db:5432/mydb
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python wait_for_db.py &&
+             alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  celery:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: myuser
+      DB_PASS: mypassword
+      DB_NAME: mydb
+      DATABASE_URL: postgresql+psycopg2://myuser:mypassword@db:5432/mydb
+      REDIS_URL: redis://redis:6379/0
+    command: >
+      sh -c "python wait_for_db.py &&
+             celery -A app.celery_worker.celery_app worker --loglevel=info"
+
+volumes:
+  postgres_data:
