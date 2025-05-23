@@ -9,8 +9,8 @@ from app.database import get_db
 from app.models import JobAnalytics
 from app.schemas import JobAnalyticsResponse
 from app.celery_worker import compute_job_analytics
-from app.redis_client import redis_client
-import logging
+from app.utils.redis_client import redis_client
+from app.utils.logger import logger
 
 router = APIRouter(
     prefix="/analytics",
@@ -22,7 +22,7 @@ router = APIRouter(
 def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
     cached = redis_client.get(f"job_analytics:{job_id}")
     if cached:
-        logging.info(f"Job analytics for job_id {job_id} retrieved from Redis.")
+        logger.success(f"Job analytics for job_id {job_id} retrieved from Redis.")
         return JobAnalyticsResponse.model_validate(json.loads(cached))
 
     analytics = db.query(JobAnalytics).filter(JobAnalytics.job_id == job_id).first()
@@ -33,7 +33,7 @@ def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
         redis_client.set(f"job_analytics:{job_id}", analytics_data, ex=3600)
         return analytics
 
-    logging.info(f"Job analytics for job_id {job_id} not found in DB, triggering computation.")
+    logger.warning(f"Job analytics for job_id {job_id} not found in DB, triggering computation.")
     compute_job_analytics.delay(job_id)
     raise HTTPException(
         status_code=202,
@@ -50,7 +50,7 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
 
     cached = redis_client.get(f"analytics_summary:{date_str}")
     if cached:
-        logging.info(f"Analytics summary for date {date_str} retrieved from Redis.")
+        logger.success(f"Analytics summary for date {date_str} retrieved from Redis.")
         return [JobAnalyticsResponse.model_validate(json.loads(c)) for c in json.loads(cached)]
 
     analytics_list = (

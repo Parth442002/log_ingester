@@ -7,3 +7,4 @@ alembic
 celery
 redis
 psycopg2-binary
+loguru

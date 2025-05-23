@@ -4,19 +4,14 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import RawLog, JobAnalytics
 from app.schemas import EventTypeEnum,LogStatusEnum
-import logging
 from datetime import datetime
-import dotenv
-import os
-
-dotenv.load_dotenv()
-redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
+from app.utils.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+from app.utils.logger import logger
 
 celery_app = Celery(
     "worker",
-    broker=redis_url,
-    backend=redis_url
+    broker=CELERY_BROKER_URL,
+    backend=CELERY_RESULT_BACKEND
 )
 
 
@@ -32,7 +27,7 @@ def compute_job_analytics(job_id: int):
         )
 
         if not logs:
-            logging.info(f"No pending logs found for job {job_id}, skipping.")
+            logger.info(f"No pending logs found for job {job_id}, skipping.")
             return
 
         # Initialize variables
@@ -51,7 +46,7 @@ def compute_job_analytics(job_id: int):
 
         # Ensure required events exist
         if not job_start or not job_end:
-            logging.info(f"Job {job_id} analytics deferred: missing start/end logs.")
+            logger.info(f"Job {job_id} analytics deferred: missing start/end logs.")
             return  # Wait for all required logs
 
         # Parse timestamps
@@ -82,11 +77,11 @@ def compute_job_analytics(job_id: int):
             log.status = LogStatusEnum.PROCESSED
 
         db.commit()
-        logging.info(f"Analytics computed and saved for job {job_id}")
+        logger.success(f"Analytics computed and saved for job {job_id}")
 
     except Exception as e:
         db.rollback()
-        logging.error(f"Failed to compute analytics for job {job_id}: {e}")
+        logger.error(f"Failed to compute analytics for job {job_id}: {e}")
         raise
     finally:
         db.close()

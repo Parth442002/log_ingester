@@ -2,12 +2,7 @@ import os
 import time
 import psycopg2
 from psycopg2 import OperationalError
-
-DB_HOST = os.getenv("DB_HOST", "db")
-DB_PORT = int(os.getenv("DB_PORT", 5432))
-DB_USER = os.getenv("DB_USER", "myuser")
-DB_PASS = os.getenv("DB_PASS", "mypassword")
-DB_NAME = os.getenv("DB_NAME", "mydb")
+from app.utils.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 def wait_for_db():
     print(f"Waiting for database at {DB_HOST}:{DB_PORT}...")
@@ -17,7 +12,7 @@ def wait_for_db():
                 host=DB_HOST,
                 port=DB_PORT,
                 user=DB_USER,
-                password=DB_PASS,
+                password=DB_PASSWORD,
                 dbname=DB_NAME,
             )
             conn.close()
