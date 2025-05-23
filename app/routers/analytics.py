@@ -9,6 +9,7 @@ from app.models import JobAnalytics
 from app.schemas import JobAnalyticsResponse
 from app.celery_worker import compute_job_analytics
 from app.utils.redis_client import redis_client
+from app.utils.config import CACHING_TTL
 from app.utils.logger import logger
 
 router = APIRouter(
@@ -29,7 +30,7 @@ def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
     if analytics:
         # Convert SQLAlchemy model to dict using Pydantic
         analytics_data = JobAnalyticsResponse.model_validate(analytics).model_dump_json()
-        redis_client.set(f"job_analytics:{job_id}", analytics_data, ex=3600)
+        redis_client.set(f"job_analytics:{job_id}", analytics_data, ex=CACHING_TTL)
         return analytics
 
     logger.warning(f"Job analytics for job_id {job_id} not found in DB, triggering computation.")
@@ -63,6 +64,6 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
 
     # Convert list of SQLAlchemy models to list of dicts using Pydantic
     analytics_response = [JobAnalyticsResponse.model_validate(a).model_dump_json() for a in analytics_list]
-    redis_client.set(f"analytics_summary:{date_str}", json.dumps(analytics_response), ex=3600)
+    redis_client.set(f"analytics_summary:{date_str}", json.dumps(analytics_response), ex=CACHING_TTL)
 
     return analytics_list

@@ -7,6 +7,7 @@ from app.schemas import EventTypeEnum,LogStatusEnum
 from datetime import datetime
 from app.utils.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
 from app.utils.logger import logger
+from app.utils.redis_client import redis_client
 
 celery_app = Celery(
     "worker",
@@ -81,11 +82,18 @@ def compute_job_analytics(job_id: int):
         )
         db.merge(analytics_record)
 
+
         # Mark logs as processed
         for log in logs:
             log.status = LogStatusEnum.PROCESSED
 
         db.commit()
+
+        #Evict cache for job analytics and daily summary
+        redis_client.delete(f"job_analytics:{job_id}")
+        date_key = analytics_record.end_time.date().isoformat()
+        redis_client.delete(f"analytics_summary:{date_key}")
+
         logger.success(f"Analytics computed and saved for job {job_id}")
 
     except Exception as e:

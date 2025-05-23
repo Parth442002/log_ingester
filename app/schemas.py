@@ -20,6 +20,7 @@ class BaseEventLog(BaseModel):
     job_id: int
     timestamp: datetime
     user: Optional[str] = None
+    task_id: Optional[str] = None
 
     class Config:
         use_enum_values = True
