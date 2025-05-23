@@ -23,7 +23,7 @@ def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
     cached = redis_client.get(f"job_analytics:{job_id}")
     if cached:
         logging.info(f"Job analytics for job_id {job_id} retrieved from Redis.")
-        return json.loads(cached)
+        return JobAnalyticsResponse.model_validate(json.loads(cached))
 
     analytics = db.query(JobAnalytics).filter(JobAnalytics.job_id == job_id).first()
 
@@ -31,7 +31,7 @@ def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
         # Convert SQLAlchemy model to dict using Pydantic
         analytics_data = JobAnalyticsResponse.model_validate(analytics).model_dump_json()
         redis_client.set(f"job_analytics:{job_id}", analytics_data, ex=3600)
-        return analytics_data
+        return analytics
 
     logging.info(f"Job analytics for job_id {job_id} not found in DB, triggering computation.")
     compute_job_analytics.delay(job_id)
@@ -51,7 +51,7 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
     cached = redis_client.get(f"analytics_summary:{date_str}")
     if cached:
         logging.info(f"Analytics summary for date {date_str} retrieved from Redis.")
-        return json.loads(cached)
+        return [JobAnalyticsResponse.model_validate(json.loads(c)) for c in json.loads(cached)]
 
     analytics_list = (
         db.query(JobAnalytics)
@@ -64,6 +64,6 @@ def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session 
 
     # Convert list of SQLAlchemy models to list of dicts using Pydantic
     analytics_response = [JobAnalyticsResponse.model_validate(a).model_dump_json() for a in analytics_list]
-    redis_client.set(f"analytics_summary:{date_str}", analytics_response, ex=3600)
+    redis_client.set(f"analytics_summary:{date_str}", json.dumps(analytics_response), ex=3600)
 
-    return analytics_response
+    return analytics_list
