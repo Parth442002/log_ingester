@@ -43,5 +43,17 @@ services:
       sh -c "python wait_for_db.py &&
              celery -A app.celery_worker.celery_app worker --loglevel=info"
 
+  celery-beat:
+    build: .
+    depends_on:
+      - db
+      - redis
+    env_file: .env
+    environment:
+      IN_DOCKER: 1
+    command: >
+      sh -c "python wait_for_db.py &&
+             celery -A app.celery_worker.celery_app beat --loglevel=info"
+
 volumes:
   postgres_data:

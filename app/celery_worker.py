@@ -1,11 +1,12 @@
 # celery_worker.py
-from celery import Celery
+from celery import Celery,group
 from sqlalchemy.orm import Session
+from sqlalchemy import func, distinct
 from app.database import SessionLocal
 from app.models import RawLog, JobAnalytics
 from app.schemas import EventTypeEnum,LogStatusEnum
-from datetime import datetime
-from app.utils.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+from datetime import datetime,timezone,timedelta
+from app.utils.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND,SCHEDULER_TIMEOUT
 from app.utils.logger import logger
 from app.utils.redis_client import redis_client
 
@@ -15,6 +16,66 @@ celery_app = Celery(
     backend=CELERY_RESULT_BACKEND
 )
 
+
+celery_app.conf.beat_schedule = {
+    "periodic_analytics": {
+        "task": "tasks.schedule_pending_analytics",
+        "schedule": SCHEDULER_TIMEOUT #Value in seconds
+    }
+}
+
+@celery_app.task(name="tasks.schedule_pending_analytics")
+def schedule_pending_analytics():
+    """
+    Scan raw logs for jobs that have both a START and END event,
+    and still have at least one PENDING log entry. Enqueue
+    compute_job_analytics for each such job_id.
+    """
+    db: Session = SessionLocal()
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=2*SCHEDULER_TIMEOUT)
+        # 1) Find job_ids with both START and END events
+        jobs_with_start_end = (
+            db.query(RawLog.job_id)
+              .filter(
+                  RawLog.timestamp >= cutoff,
+                  RawLog.event.in_([
+                      EventTypeEnum.SPARK_LISTENER_JOB_START,
+                      EventTypeEnum.SPARK_LISTENER_JOB_END
+                  ])
+              )
+              .group_by(RawLog.job_id)
+              .having(func.count(distinct(RawLog.event)) == 2)
+              .subquery()
+        )
+
+        # 2) From those, pick job_ids that still have any PENDING logs
+        pending_jobs = (
+            db.query(RawLog.job_id)
+              .filter(
+                  RawLog.timestamp >= cutoff,
+                  RawLog.job_id.in_(jobs_with_start_end),
+                  RawLog.status == LogStatusEnum.PENDING
+              )
+              .distinct()
+              .all()
+        )
+        job_ids = [jid for (jid,) in pending_jobs]
+
+        if not job_ids:
+            logger.info("No jobs with complete events and pending logs found.")
+            return
+
+        # 3) Enqueue analytics computation in parallel
+        job_groups = group(compute_job_analytics.s(job_id) for job_id in job_ids)
+        job_groups.apply_async()
+        logger.info(f"Enqueued analytics for job_ids={job_ids} as group {job_groups.id}")
+
+    except Exception as e:
+        logger.error(f"Error scheduling pending analytics: {e}")
+        raise
+    finally:
+        db.close()
 
 
 @celery_app.task(name="tasks.compute_job_analytics")
