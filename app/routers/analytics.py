@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.get("/analytics/jobs/{job_id}", response_model=JobAnalyticsResponse)
+@router.get("/jobs/{job_id}", response_model=JobAnalyticsResponse)
 def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
     analytics = db.query(JobAnalytics).filter(JobAnalytics.job_id == job_id).first()
 
@@ -30,7 +30,7 @@ def get_job_analytics(job_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/analytics/summary", response_model=List[JobAnalyticsResponse])
+@router.get("/summary", response_model=List[JobAnalyticsResponse])
 def get_analytics_summary(date_str: str = Query(..., alias="date"), db: Session = Depends(get_db)):
     try:
         query_date = datetime.strptime(date_str, "%Y-%m-%d").date()

@@ -23,12 +23,13 @@ class RawLog(Base):
     job_id = Column(Integer, nullable=False, index=True)
     user =Column(String,index=True,nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
-    log = Column(JSON, nullable=False)  # full event payload as JSON
+    task_id= Column(String, nullable=True,index=True)
+    log = Column(JSON, nullable=False)
     insertion_time = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     status = Column(Enum(LogStatusEnum), default=LogStatusEnum.PENDING, nullable=False)
 
     __table_args__ = (
-        UniqueConstraint('job_id', 'event_type', 'log->>\'task_id\'', name='uq_job_event_task'),
+        UniqueConstraint('job_id', 'event', 'task_id', name='uq_job_event_task'),
     )
 
 
